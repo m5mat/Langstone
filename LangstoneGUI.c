@@ -2371,7 +2371,7 @@ void setMode(int md)
     ritButton(0);
     setRit(0);
     } 
-  if (md == DSD)
+  if (md == DMR)
     {
     sendTxFifo("M4");    //FM TX (DMR TX not yet implemented)
     sendRxFifo("M6");    // DSD DMR RX
