@@ -125,11 +125,11 @@ int bandSSBFiltHigh[numband]={3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,
 #define maxHwFreq 5999.99999
 
 
-#define nummode 6
+#define nummode 7
 int mode=0;
 int lastmode=0;
-char * modename[nummode]={"USB","LSB","CW ","CWN","FM ","AM "};
-enum {USB,LSB,CW,CWN,FM,AM};
+char * modename[nummode]={"USB","LSB","CW ","CWN","FM ","AM ", "DMR"};
+enum {USB,LSB,CW,CWN,FM,AM,DMR};
 
 #define numSettings 19
 
@@ -1327,7 +1327,7 @@ void initGUI()
   displayMenu();
   setBand(band);
   
-  if(mode==FM) 
+  if((mode==FM) || (mode==DMR))
     {
     sqlButton(1);
     }
@@ -1375,7 +1375,7 @@ gotoXY(funcButtonsX,funcButtonsY);
   displayButton("BAND");
   displayButton("MODE");
   
-  if((mode==FM) && (bandRepShift[band]!=0))
+  if(((mode==FM)||(mode==DMR)) && (bandRepShift[band]!=0))
   {
   if((ptt | ptts) && (bandDuplex[band]>0))
     {
@@ -1677,7 +1677,7 @@ if(buttonTouched(volButtonX,volButtonY))    //Vol
 
 if(buttonTouched(sqlButtonX,sqlButtonY))    //sql
     {
-     if(mode==FM)
+     if((mode==FM)||(mode==DMR))
      {
       if(inputMode==SQUELCH)
         {
@@ -1756,7 +1756,7 @@ if(buttonTouched(funcButtonsX+buttonSpaceX*2,funcButtonsY))  // Button 3 =Blank 
     {
      if(inputMode==FREQ)
       {
-      if((mode==FM) && (bandRepShift[band]!=0))
+      if(((mode==FM)||(mode==DMR)) && (bandRepShift[band]!=0))
       {
         if((ptt | ptts) && (bandDuplex[band]>0))
         {  
@@ -2102,7 +2102,7 @@ void setSquelch(int sql)
   char sqlStr[10];
   sprintf(sqlStr,"S%d",sql);
   sendRxFifo(sqlStr);
-  if(mode==FM)
+  if((mode==FM)||(mode=DMR))
   {
   setForeColour(0,255,0);
   textSize=2;
@@ -2211,7 +2211,7 @@ void setRit(int ri)
 {
   char ritStr[10];
   int to;
-  if(!((mode==FM) || (mode==AM)))
+  if(!((mode==FM) || (mode==AM) || (mode=DMR)))
   {
   rit=ri;
   setForeColour(0,255,0);
@@ -2294,7 +2294,7 @@ void setMode(int md)
   setForeColour(255,255,0);
   textSize=2;
   displayStr(modename[md]);
-  if((md==FM)&&(bandDuplex[band]==1))
+  if(((md==FM)||(md=DMR))&&(bandDuplex[band]==1))
     {
     displayStr("DUP");
     }
@@ -2371,7 +2371,17 @@ void setMode(int md)
     ritButton(0);
     setRit(0);
     } 
-
+  if (md == DSD)
+    {
+    sendTxFifo("M4");    //FM TX (DMR TX not yet implemented)
+    sendRxFifo("M6");    // DSD DMR RX
+    setRxFilter(-7500, 7500);    //FM Filter
+    setTxFilter(-7500, 7500);    //FM Filter  
+    setFreq(freq);    //set the frequency to adjust for CW offset.
+    sqlButton(1);
+    ritButton(0);
+    setRit(0);
+    }
                                                                  
 configCounter=configDelay;
 }
@@ -2399,7 +2409,7 @@ void setTx(int pt)
       setPlutoGpo(plutoGpo);                               //set the Pluto GPO Pin 
       usleep(TXDELAY);
       setHwTxFreq(freq);
-      if((mode==FM)&&(bandDuplex[band]==1))
+      if(((mode==FM)||(mode==DMR))&&(bandDuplex[band]==1))
         {
         displayFreq(freq+bandRepShift[band]);
         displayMenu();
@@ -2445,7 +2455,7 @@ void setTx(int pt)
       PlutoRxEnable(1);
       setFFTPipe(1);                //turn on the Rx FFT Stream
       setHwRxFreq(freq);
-      if((mode==FM)&&(bandDuplex[band]==1))
+      if(((mode==FM)||(mode=DMR))&&(bandDuplex[band]==1))
         {
         displayFreq(freq);
         displayMenu();
@@ -2517,7 +2527,7 @@ void setHwTxFreq(double fr)
   
   frTx=fr+bandTxOffset[band];
   
-  if((mode==FM)&&(bandDuplex[band]==1))
+  if(((mode==FM)||(mode==DMR))&&(bandDuplex[band]==1))
     {
     frTx=frTx+bandRepShift[band];
     }
