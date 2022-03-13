@@ -1487,6 +1487,25 @@ displayMenu();
                                                            
 void processMouse(int mbut)
 {
+  if(mbut==125)		// X Movement (volume)
+    {
+      volume=volume+mouseX;
+      mouseX=0;
+      if(volume < 0) volume=0;
+      if(volume > maxvol) volume=maxvol;
+      setVolume(volume);
+      return;
+    }
+  if (mbut==126)	// Y Movement (squelch)
+    {
+      squelch=squelch+mouseY;
+      mouseY=0;
+      if(squelch < 0) squelch=0;
+      if(squelch > maxsql) squelch=maxsql;
+      bandSquelch[band]=squelch;
+      setSquelch(squelch);
+      return;
+    }
   if(mbut==128)       //scroll whell turned 
     {
       if((inputMode==FREQ) && (dialLock==0))
