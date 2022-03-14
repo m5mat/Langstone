@@ -5,8 +5,8 @@
 # Title: Lang Rx
 # Generated: Mon Mar 14 21:56:45 2022
 ##################################################
-
-
+import os
+import errno
 from gnuradio import analog
 from gnuradio import audio
 from gnuradio import blocks
@@ -30,6 +30,10 @@ class Lang_RX(gr.top_block):
         ##################################################
         # Variables
         ##################################################
+	plutoip=os.environ.get('PLUTO_IP')
+	if plutoip==None :
+	  plutoip='pluto.local'
+	plutoip='ip:' + plutoip
         self.SQL = SQL = 50
         self.RxOffset = RxOffset = 0
         self.Mute = Mute = False
@@ -48,7 +52,7 @@ class Lang_RX(gr.top_block):
                 taps=None,
                 fractional_bw=None,
         )
-        self.pluto_source_0 = iio.pluto_source('ip:pluto.local', 1000000000, 528000, 2000000, 0x800, True, True, True, "slow_attack", 64.0, '', True)
+        self.pluto_source_0 = iio.pluto_source(plutoip, 1000000000, 528000, 2000000, 0x800, True, True, True, "slow_attack", 64.0, '', True)
         self.logpwrfft_x_0 = logpwrfft.logpwrfft_c(
         	sample_rate=48000,
         	fft_size=512,
@@ -186,15 +190,62 @@ class Lang_RX(gr.top_block):
         self.AFGain = AFGain
         self.blocks_multiply_const_vxx_1.set_k(((self.AFGain/100.0) *  (not self.Mute), ))
 
+def docommands(tb):
+  try:
+    os.mkfifo("/tmp/langstoneRx")
+  except OSError as oe:
+    if oe.errno != errno.EEXIST:
+      raise    
+  ex=False
+  lastbase=0
+  while not ex:
+    fifoin=open("/tmp/langstoneRx",'r')
+    while True:
+       try:
+        with fifoin as filein:
+         for line in filein:
+           line=line.strip()
+           if line=='Q':
+              ex=True                  
+           if line=='P':
+              tb.set_FFTEn(1)
+           if line=='p':
+              tb.set_FFTEn(0)
+           if line=='U':
+              tb.set_Mute(1)
+           if line=='u':
+              tb.set_Mute(0)
+           if line=='H':
+              tb.lock()
+           if line=='h':
+              tb.unlock() 
+           if line[0]=='O':
+              value=int(line[1:])
+              tb.set_RxOffset(value)  
+           if line[0]=='V':
+              value=int(line[1:])
+              tb.set_AFGain(value)
+           if line[0]=='S':
+              value=int(line[1:])
+              tb.set_SQL(value) 
+           if line[0]=='F':
+              value=int(line[1:])
+              tb.set_Filt_High(value) 
+           if line[0]=='f':
+              value=int(line[1:])
+              tb.set_Filt_Low(value) 
+           if line[0]=='M':
+              value=int(line[1:])
+              tb.set_Mode(value) 
+                                                     
+       except:
+         break
 
 def main(top_block_cls=Lang_RX, options=None):
 
     tb = top_block_cls()
     tb.start()
-    try:
-        raw_input('Press Enter to quit: ')
-    except EOFError:
-        pass
+    docommands(tb)
     tb.stop()
     tb.wait()
 
