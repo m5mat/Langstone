@@ -62,7 +62,7 @@ class Lang_RX(gr.top_block):
         	average=True,
         )
         self.freq_xlating_fir_filter_xxx_0 = filter.freq_xlating_fir_filter_ccc(11, (firdes.low_pass(1,529200,23000,2000)), RxOffset, 528000)
-        self.dsd_block_ff_0 = dsd.dsd_block_ff(dsd.dsd_FRAME_DMR_MOTOTRBO,dsd.dsd_MOD_AUTO_SELECT,3,False,0)
+        self.dsd_block_ff_0 = dsd.dsd_block_ff(dsd.dsd_FRAME_AUTO_DETECT,dsd.dsd_MOD_AUTO_SELECT,3,False,0)
         self.blocks_udp_sink_0 = blocks.udp_sink(gr.sizeof_float*512, '127.0.0.1', 7373, 1472, False)
         self.blocks_null_sink_0 = blocks.null_sink(gr.sizeof_float*512)
         self.blocks_multiply_const_vxx_6 = blocks.multiply_const_vff(((Mode==6), ))
