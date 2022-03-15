@@ -117,6 +117,22 @@ git clone https://github.com/boatbod/op25
 cd op25
 ./install.sh
 
+echo "#################################"
+echo "##         Install DSD         ##"
+echo "#################################"
+
+cd ~
+sudo apt-get -y install libsndfile1-dev libboost-all-dev libcppunit-dev libitpp-dev liblog4cpp5-dev swig
+git clone https://github.com/argilo/gr-dsd
+cd gr-dsd
+mkdir build
+cd build
+cmake ..
+make
+sudo make install
+sudo ldconfig
+cd ~
+
 
 echo "#################################"
 echo "##       Reboot and Start      ##"

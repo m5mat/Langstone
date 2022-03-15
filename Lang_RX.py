@@ -3,7 +3,7 @@
 ##################################################
 # GNU Radio Python Flow Graph
 # Title: Lang Rx
-# Generated: Tue Jun 29 22:13:28 2021
+# Generated: Mon Mar 14 21:56:45 2022
 ##################################################
 import os
 import errno
@@ -19,6 +19,7 @@ from gnuradio.fft import logpwrfft
 from gnuradio.filter import firdes
 from grc_gnuradio import blks2 as grc_blks2
 from optparse import OptionParser
+import dsd
 
 
 class Lang_RX(gr.top_block):
@@ -29,10 +30,10 @@ class Lang_RX(gr.top_block):
         ##################################################
         # Variables
         ##################################################
-        plutoip=os.environ.get('PLUTO_IP')
-        if plutoip==None :
-          plutoip='pluto.local'
-        plutoip='ip:' + plutoip
+	plutoip=os.environ.get('PLUTO_IP')
+	if plutoip==None :
+	  plutoip='pluto.local'
+	plutoip='ip:' + plutoip
         self.SQL = SQL = 50
         self.RxOffset = RxOffset = 0
         self.Mute = Mute = False
@@ -45,6 +46,12 @@ class Lang_RX(gr.top_block):
         ##################################################
         # Blocks
         ##################################################
+        self.rational_resampler_xxx_0 = filter.rational_resampler_fff(
+                interpolation=6,
+                decimation=1,
+                taps=None,
+                fractional_bw=None,
+        )
         self.pluto_source_0 = iio.pluto_source(plutoip, 1000000000, 528000, 2000000, 0x800, True, True, True, "slow_attack", 64.0, '', True)
         self.logpwrfft_x_0 = logpwrfft.logpwrfft_c(
         	sample_rate=48000,
@@ -55,8 +62,10 @@ class Lang_RX(gr.top_block):
         	average=True,
         )
         self.freq_xlating_fir_filter_xxx_0 = filter.freq_xlating_fir_filter_ccc(11, (firdes.low_pass(1,529200,23000,2000)), RxOffset, 528000)
+        self.dsd_block_ff_0 = dsd.dsd_block_ff(dsd.dsd_FRAME_AUTO_DETECT,dsd.dsd_MOD_AUTO_SELECT,3,False,0)
         self.blocks_udp_sink_0 = blocks.udp_sink(gr.sizeof_float*512, '127.0.0.1', 7373, 1472, False)
         self.blocks_null_sink_0 = blocks.null_sink(gr.sizeof_float*512)
+        self.blocks_multiply_const_vxx_6 = blocks.multiply_const_vff(((Mode==6), ))
         self.blocks_multiply_const_vxx_2_1_0 = blocks.multiply_const_vff((1.0 + (Mode==5), ))
         self.blocks_multiply_const_vxx_2_1 = blocks.multiply_const_vff((Mode==5, ))
         self.blocks_multiply_const_vxx_2_0 = blocks.multiply_const_vff(((Mode==4) * 0.2, ))
@@ -88,11 +97,14 @@ class Lang_RX(gr.top_block):
         self.analog_agc3_xx_0 = analog.agc3_cc(1e-2, 5e-7, 0.1, 1.0, 1)
         self.analog_agc3_xx_0.set_max_gain(1000)
 
+
+
         ##################################################
         # Connections
         ##################################################
         self.connect((self.analog_agc3_xx_0, 0), (self.blocks_complex_to_real_0_0, 0))
         self.connect((self.analog_nbfm_rx_0, 0), (self.blocks_multiply_const_vxx_2_0, 0))
+        self.connect((self.analog_nbfm_rx_0, 0), (self.blocks_multiply_const_vxx_6, 0))
         self.connect((self.analog_pwr_squelch_xx_0, 0), (self.analog_nbfm_rx_0, 0))
         self.connect((self.band_pass_filter_0, 0), (self.analog_pwr_squelch_xx_0, 0))
         self.connect((self.band_pass_filter_0, 0), (self.blocks_complex_to_mag_0, 0))
@@ -110,10 +122,13 @@ class Lang_RX(gr.top_block):
         self.connect((self.blocks_multiply_const_vxx_2_0, 0), (self.blocks_add_xx_1, 1))
         self.connect((self.blocks_multiply_const_vxx_2_1, 0), (self.blocks_add_xx_1_0, 1))
         self.connect((self.blocks_multiply_const_vxx_2_1_0, 0), (self.blocks_add_xx_1, 0))
+        self.connect((self.blocks_multiply_const_vxx_6, 0), (self.dsd_block_ff_0, 0))
+        self.connect((self.dsd_block_ff_0, 0), (self.rational_resampler_xxx_0, 0))
         self.connect((self.freq_xlating_fir_filter_xxx_0, 0), (self.band_pass_filter_0, 0))
         self.connect((self.freq_xlating_fir_filter_xxx_0, 0), (self.logpwrfft_x_0, 0))
         self.connect((self.logpwrfft_x_0, 0), (self.blks2_selector_0, 0))
         self.connect((self.pluto_source_0, 0), (self.freq_xlating_fir_filter_xxx_0, 0))
+        self.connect((self.rational_resampler_xxx_0, 0), (self.blocks_add_xx_1, 2))
 
     def get_SQL(self):
         return self.SQL
@@ -141,6 +156,7 @@ class Lang_RX(gr.top_block):
 
     def set_Mode(self, Mode):
         self.Mode = Mode
+        self.blocks_multiply_const_vxx_6.set_k(((self.Mode==6), ))
         self.blocks_multiply_const_vxx_2_1_0.set_k((1.0 + (self.Mode==5), ))
         self.blocks_multiply_const_vxx_2_1.set_k((self.Mode==5, ))
         self.blocks_multiply_const_vxx_2_0.set_k(((self.Mode==4) * 0.2, ))
