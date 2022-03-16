@@ -1,4 +1,3 @@
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -11,6 +10,7 @@
 #include "Graphics.h"
 #include "Touch.h"
 #include "Mouse.h"
+#include "Joystick.h"
 #include "mcp23017.c"
 #include "Morse.c"
 #include <netdb.h>
@@ -41,6 +41,7 @@ void setTxFilter(int low,int high);
 void setBandBits(int b);
 void processTouch();
 void processMouse(int mbut);
+void processJoystick(int jbut);
 void initGUI();
 void sendTxFifo(char * s);
 void sendRxFifo(char * s);
@@ -241,8 +242,10 @@ int tuneDigit=8;
 
 #define BurstLength 500000     //length of 1750Hz Burst   500ms
 
+char joystickPath[20];
 char mousePath[20];
 char touchPath[20];
+int joystickPresent;
 int mousePresent;
 int touchPresent;
 int plutoPresent;
@@ -328,6 +331,7 @@ int main(int argc, char* argv[])
   initGPIO();
   if(touchPresent) initTouch(touchPath);
   if(mousePresent) initMouse(mousePath);
+  if(joystickPresent) initJoystick(joystickPath);
   initGUI(); 
   initSDR(); 
   //              RGB Vals   Black >  Blue  >  Green  >  Yellow   >   Red     4 gradients    //number of gradients is varaible
@@ -367,7 +371,17 @@ int main(int argc, char* argv[])
            
       }
       
+    if(joystickPresent)
+      {
+        int but=getJoystick();
+        if(but>0)
+          {
+             processJoystick(but);
+          }
+      }
+
       
+
    
     if(sendBeacon==2)
       {
@@ -826,6 +840,7 @@ void detectHw()
   p=0;
   mousePresent=0;
   touchPresent=0;
+  joystickPresent=0;
   portsdownPresent=0;
   fp=fopen("/proc/bus/input/devices","r");
    while ((rd=getline(&ln,&len,fp)!=-1))
@@ -853,17 +868,28 @@ void detectHw()
            strcpy(handler[p],found);
            handler[p][6]=0;
            if(p==0) 
-            {
-              sprintf(mousePath,"/dev/input/%s",handler[0]);
-              mousePresent=1;
-            }
+             {
+               sprintf(mousePath,"/dev/input/%s",handler[0]);
+               mousePresent=1;
+             }
            if(p==1) 
-           {
-             sprintf(touchPath,"/dev/input/%s",handler[1]);
-             touchPresent=1;
-           }
+             {
+               sprintf(touchPath,"/dev/input/%s",handler[1]);
+               touchPresent=1;
+             }
          }
-      }   
+         if(strstr(ln,"js")!=NULL)
+         {
+           found=strstr(ln,"event");
+           strcpy(handler[p],found);
+           handler[p][6]=0;
+           if(p==0) 
+             {
+               sprintf(joystickPath,"/dev/input/%s",handler[0]);
+               joystickPresent=1;
+             }
+         }
+      }
     }
   fclose(fp);
   if(ln)  free(ln);
@@ -1639,6 +1665,26 @@ void processMouse(int mbut)
     }
   
     
+}
+
+void processJoystick(int jbut)
+{
+  // TODO: Populate this
+  if ( jbut == 128 ) {
+      volume=joyX;
+      if(volume < 0) volume=0;
+      if(volume > maxvol) volume=maxvol;
+      setVolume(volume);
+      return;
+  }
+
+  if ( jbut == 127 ) {
+      squelch=joyY;
+      if(squelch < 0) squelch=0;
+      if(squelch > maxsql) squelch=maxsql;
+      setSquelch(squelch);
+      return;
+  }
 }
 
 void setFreqInc()
@@ -2889,6 +2935,7 @@ if(MCP23017Present==1)                       //optional extender chip has port b
 }
 
 
+// TODO: Change mouseScroll in here to whatever Joystick axis the VFO (or menu) knob is appropriate
 void changeSetting(void)
 {
   if(settingNo==SSB_MIC)        //SSB Mic Gain
