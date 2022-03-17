@@ -1,0 +1,4 @@
+#!/bin/bash
+/home/pi/Langstone/stop
+sleep 2
+/home/pi/Langstone/run
