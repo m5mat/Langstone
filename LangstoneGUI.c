@@ -67,6 +67,7 @@ int readConfig(void);
 int writeConfig(void);
 int satMode(void);
 int splitMode(void);
+int satSplitMode(void);
 int txvtrMode(void);
 int duplexMode(void);
 int multMode(void);
@@ -92,6 +93,7 @@ void clearPopUp(void);
 void displayPopupMode(void);
 void displayPopupBand(void);
 void send1750(void);
+void setCTCSS(int t);
 void displayError(char*st);
 int minGain(double freq);
 int maxGain(double freq);
@@ -116,6 +118,7 @@ int bandFFTRef[numband]={-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10};
 int bandTxAtt[numband]={0,0,0,0,0,0,0,0,0,0,0,0};
 int bandRxGain[numband]={100,100,100,100,100,100,100,100,100,100,100,100};              //100 is automatic gain
 int bandDuplex[numband]={0,0,0,0,0,0,0,0,0,0,0,0};
+int bandCTCSS[numband]={0,0,0,0,0,0,0,0,0,0,0,0};
 float bandSmeterZero[numband]={-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80};
 int bandSSBFiltLow[numband]={300,300,300,300,300,300,300,300,300,300,300,300};
 int bandSSBFiltHigh[numband]={3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000};
@@ -132,10 +135,10 @@ int lastmode=0;
 char * modename[nummode]={"USB","LSB","CW ","CWN","FM ","AM ", "DMR"};
 enum {USB,LSB,CW,CWN,FM,AM,DMR};
 
-#define numSettings 19
+#define numSettings 20
 
-char * settingText[numSettings]={"Rx Gain= ","SSB Mic Gain= ","FM Mic Gain= ","Repeater Shift= "," Rx Offset= ","Rx Harmonic Mixing= "," Tx Offset= ","Tx Harmonic Mixing= ","Band Bits (Rx)= ","Band Bits (Tx)= ","Copy Band Bits to Pluto=","FFT Ref= ","Tx Att= ","S-Meter Zero= ", "SSB Rx Filter Low= ", "SSB Rx Filter High= ","CW Ident= ", "CWID Carrier= ", "CW Break-In Hang Time= "};
-enum {RX_GAIN,SSB_MIC,FM_MIC,REP_SHIFT,RX_OFFSET,RX_HARMONIC,TX_OFFSET,TX_HARMONIC,BAND_BITS_RX,BAND_BITS_TX,BAND_BITS_TO_PLUTO,FFT_REF,TX_ATT,S_ZERO,SSB_FILT_LOW,SSB_FILT_HIGH,CWID,CW_CARRIER,BREAK_IN_TIME};
+char * settingText[numSettings]={"Rx Gain= ","SSB Mic Gain= ","FM Mic Gain= ","Repeater Shift= ","CTCSS= ", "Rx Offset= ","Rx Harmonic Mixing= "," Tx Offset= ","Tx Harmonic Mixing= ","Band Bits (Rx)= ","Band Bits (Tx)= ","Copy Band Bits to Pluto=","FFT Ref= ","Tx Att= ","S-Meter Zero= ", "SSB Rx Filter Low= ", "SSB Rx Filter High= ","CW Ident= ", "CWID Carrier= ", "CW Break-In Hang Time= "};
+enum {RX_GAIN,SSB_MIC,FM_MIC,REP_SHIFT,CTCSS,RX_OFFSET,RX_HARMONIC,TX_OFFSET,TX_HARMONIC,BAND_BITS_RX,BAND_BITS_TX,BAND_BITS_TO_PLUTO,FFT_REF,TX_ATT,S_ZERO,SSB_FILT_LOW,SSB_FILT_HIGH,CWID,CW_CARRIER,BREAK_IN_TIME};
 int settingNo=RX_GAIN;
 int setIndex=0;
 int maxSetIndex=10;
@@ -143,6 +146,8 @@ int maxSetIndex=10;
 enum {FREQ,SETTINGS,VOLUME,SQUELCH,RIT};
 int inputMode=FREQ;
 
+#define NUMCTCSS 52
+int CTCSSTone[NUMCTCSS] = {0,670,693,719,744,770,797,825,854,885,915,948,974,1000,1035,1072,1109,1148,1188,1230,1273,1318,1365,1413,1462,1500,1514,1567,1598,1622,1655,1679,1713,1738,1773,1799,1835,1862,1899,1928,1966,1995,2035,2065,2107,2181,2257,2291,2336,2418,2503,2541};
 
 //GUI Layout values X and Y coordinates for each group of buttons.
 
@@ -215,6 +220,8 @@ long long lastClock;
 long progStartTime=0;
 
 int lastKey=1;
+  
+int sMeterType = 0;
 
 int volume=20;
 #define maxvol 100
@@ -448,9 +455,9 @@ int main(int argc, char* argv[])
    
    if(firstpass==1)
    {
-   firstpass=0;
    setTx(1);                                              //seems to be needed to initialise Pluto
    setTx(0);
+   firstpass=0;
    }
     
     while(runTimeMs() < (lastClock + 10))                //delay until the next iteration at 100 per second (10ms)
@@ -510,7 +517,7 @@ void waterfall()
 
   
       //check if data avilable to read
-      if((transmitting==1) && (satMode()==0))
+      if((transmitting==1) && (satSplitMode()==0))
         {
         ret = fread(&inbuf,sizeof(float),1,txfftstream);
         fftref=10;
@@ -538,7 +545,7 @@ void waterfall()
         //Read in float values, shift centre and store in buffer 1st 'row'
         for(int p=1;p<points;p++)
         {                                               
-        if((transmitting==1) && (satMode()==0))
+        if((transmitting==1) && (satSplitMode()==0))
           {
           fread(&inbuf,sizeof(float),1,txfftstream);
           }
@@ -557,7 +564,7 @@ void waterfall()
         }
  
  
-        if(((mode==CW)||(mode==CWN)) && (transmitting==1) && (satMode()==0))
+        if(((mode==CW)||(mode==CWN)) && (transmitting==1) && (satSplitMode()==0))
           {
           bwbaroffset=800/HzPerBin;
           }
@@ -600,20 +607,12 @@ void waterfall()
     
             //scale to 0-255
             level = (buf[p][r]-baselevel)*scaling;   
-            setPixel(p+FFTX,FFTY+20+r,palette[level*3+2],palette[level*3+1],palette[level*3]);
+            setPixel(p+FFTX,FFTY+20+r,palette[level*3+2],palette[level*3+1],palette[level*3]);   
           }
         }
     
-        //clear spectrum area
-        for(int r=0;r<spectrum_rows+1;r++)
-        { 
-          for(int p=0;p<points;p++)
-          {   
-            setPixel(p+FFTX,FFTY-r,0,0,0);
-          }
-        }
     
-        //draw spectrum line
+        //draw spectrum bars
         
         scaling = spectrum_rows/(float)(fftref-baselevel);
         for(int p=0;p<points-1;p++)
@@ -623,15 +622,15 @@ void waterfall()
             if (buf[p][0]>fftref) buf[p][0]=fftref;
     
             //scale to display height
-            level = (buf[p][0]-baselevel)*scaling;   
-            level2 = (buf[p+1][0]-baselevel)*scaling;
-            drawLine(p+FFTX, FFTY-level, p+1+FFTX, FFTY-level2,255,255,255);
-        }
-          
+            level = (baselevel)*scaling;   
+            level = (buf[p][0]-baselevel)*scaling;
+            drawLine(p+FFTX, FFTY, p+FFTX, FFTY-level,0,255,0);                     //draw the signal bar in Green
+            drawLine(p+FFTX, FFTY-level-1, p+FFTX, FFTY-spectrum_rows,0,0,0);       // fill the rest of the bar with black  (saves having to clear the whole area)
+          }
           //draw Bandwidth indicator
           int p=points/2;
           
-          if (((mode==CW) || (mode==CWN)) && (transmitting==0 && satMode()== 0))
+          if (((mode==CW) || (mode==CWN)) && (transmitting==0 && satSplitMode()== 0))
           {
            centreShift=800/HzPerBin;
           }
@@ -662,7 +661,7 @@ void waterfall()
           displayStr(" +20k ");
  
 
-          if((transmitting==0) || (satMode()==1))
+          if((transmitting==0) || (satSplitMode()==1))
           {
           S_Meter();
           }
@@ -744,6 +743,8 @@ void S_Meter(void)
               textSize=2;
               setForeColour(0,255,0);
               gotoXY(sMeterX+10,sMeterY+20);
+              if (sMeterType == 0)
+              {
               sprintf(smStr,"S%d",sValue);
               displayStr(smStr);
               if(dbOver>0)
@@ -755,6 +756,12 @@ void S_Meter(void)
                 {
                 displayStr("       ");
                 }
+              }
+              else
+              {
+                sprintf(smStr,"%.0f dB    ",sMeter);
+                displayStr(smStr);
+              }
            }
  
 }
@@ -1418,7 +1425,7 @@ gotoXY(funcButtonsX,funcButtonsY);
   }
 
   displayButton("SET");
-  if(satMode()==1) 
+  if(satSplitMode()==1) 
     {
     displayButton("MONI");
     }
@@ -1782,6 +1789,21 @@ if(buttonTouched(ritButtonX,ritButtonY+buttonSpaceY))    //rit zero
      setRit(0);
      setInputMode(FREQ);
     }
+    
+    
+if(buttonTouched(sMeterX,sMeterY))                        //touch on s-Meter
+{
+   if(sMeterType == 0)
+   {
+     sMeterType=1;
+   }
+   else
+   {
+     sMeterType=0;
+   }
+}
+
+
 //Function Buttons
 
 
@@ -1883,7 +1905,7 @@ if(buttonTouched(funcButtonsX+buttonSpaceX*4,funcButtonsY))    //Button 5 =MONI 
     {
     if(inputMode==FREQ)
       {
-      if(satMode()==1)
+      if(satSplitMode()==1)
         {
         if(moni==1) setMoni(0); else setMoni(1);
         }      
@@ -2056,6 +2078,7 @@ void setBand(int b)
   setBandBits(bandBitsRx[band]);
   squelch=bandSquelch[band];
   setSquelch(squelch);
+  setCTCSS(bandCTCSS[band]);
   FFTRef=bandFFTRef[band];
   TxAtt=bandTxAtt[band];
   setPlutoTxAtt(TxAtt);
@@ -2313,6 +2336,13 @@ void setFMMic(int mic)
   sendTxFifo(micStr);
 }
 
+void setCTCSS(int t)
+{
+  char ctStr[10];
+  sprintf(ctStr,"C%d",CTCSSTone[t]);
+  sendTxFifo(ctStr);
+}
+
 void setKey(int k)
 {
 if(k==0) sendTxFifo("k"); else sendTxFifo("K");
@@ -2468,10 +2498,13 @@ void setTx(int pt)
 {
   if((pt==1)&&(transmitting==0))
     {
-      setTxPin(1);
-      setBandBits(bandBitsTx[band]);
-      plutoGpo=plutoGpo | 0x10;
-      setPlutoGpo(plutoGpo);                               //set the Pluto GPO Pin 
+      if(firstpass == 0)                                      //don't set the Output pins if we are still initialising
+        { 
+         setTxPin(1);
+         setBandBits(bandBitsTx[band]);
+         plutoGpo=plutoGpo | 0x10;
+         setPlutoGpo(plutoGpo);                               //set the Pluto GPO Pin 
+        }
       usleep(TXDELAY);
       setHwTxFreq(freq);
       if(((mode==FM)||(mode==DMR))&&(bandDuplex[band]==1))
@@ -2481,7 +2514,7 @@ void setTx(int pt)
         }
       PlutoTxEnable(1);
       if (moni==0) sendRxFifo("U");                        //mute the receiver
-      if(satMode()==0)
+      if(satSplitMode()==0)
       {
         setFFTPipe(0);                        //turn off the Rx FFT stream
         sMeter=0;
@@ -2490,7 +2523,7 @@ void setTx(int pt)
         sendRxFifo("H");                      //freeze the receive Flowgraph 
       }
       sendTxFifo("h");                        //unfreeze the Tx Flowgraph
-      if(satMode()==0)
+      if(satSplitMode()==0)
       {
         clearWaterfall();
         setTxFFTPipe(1);                      //turn on the TX FFT Stream
@@ -2504,7 +2537,7 @@ void setTx(int pt)
     }
   else if((pt==0)&&(transmitting==1))
     {
-      if(satMode()==0)
+      if(satSplitMode()==0)
       {
       setTxFFTPipe(0);                  //turn off the Tx FFT Stream
       sMeter=0;
@@ -2694,7 +2727,7 @@ displayFreq(fr);
    setForeColour(0,255,0);
    if(inputMode==FREQ)
    {
-     if(satMode()==1)
+     if(satSplitMode()==1)
       {
        displayButton("MONI");
        setMoni(moni);
@@ -2707,6 +2740,12 @@ displayFreq(fr);
     }
  
  configCounter=configDelay;                       //write config after this amount of inactivity    
+}
+
+
+int satSplitMode(void)
+{
+return satMode() | splitMode();
 }
 
 int satMode(void)
@@ -2735,7 +2774,7 @@ else
 
 int splitMode(void)
 {
-if((abs(bandTxOffset[band])>0) & (bandRxOffset[band]==0))     //  if tx Offset is non zero and rxoffset is zero then we are in split mode. 
+if(((abs(bandTxOffset[band]) > 0) & (bandRxOffset[band] == 0)) | ((abs(bandRxOffset[band]) > 0) & (bandTxOffset[band] == 0)) )    //  if tx Offset or rx Offset is non zero and the other is zero then we are in split mode. 
   {
   return 1;
   }
@@ -2961,6 +3000,15 @@ void changeSetting(void)
         bandRepShift[band]=bandRepShift[band]+mouseScroll*freqInc;
         mouseScroll=0;
         setFreq(freq);
+        displaySetting(settingNo);
+      }  
+    if(settingNo==CTCSS)        //CTCSS Tone
+      {
+        bandCTCSS[band]=bandCTCSS[band]+mouseScroll;
+        if(bandCTCSS[band] < 0 ) bandCTCSS[band]=0;
+        if(bandCTCSS[band] > (NUMCTCSS - 1) ) bandCTCSS[band]= NUMCTCSS - 1;        
+        mouseScroll=0;
+        setCTCSS(bandCTCSS[band]);
         displaySetting(settingNo);
       }  
    if(settingNo==RX_OFFSET)        //Transverter Rx Offset 
@@ -3291,7 +3339,12 @@ if(se==REP_SHIFT)
   sprintf(valStr,"%.5f",bandRepShift[band]);
   displayStr(valStr);
   }
-  if(se==RX_OFFSET)
+if(se==CTCSS)
+  {
+  sprintf(valStr,"%.1f Hz",CTCSSTone[bandCTCSS[band]]/10.0);
+  displayStr(valStr);
+  }
+if(se==RX_OFFSET)
   {
   sprintf(valStr,"%.5f",bandRxOffset[band]);
   displayStr(valStr);
@@ -3511,6 +3564,8 @@ while(fscanf(conffile,"%49s %99s [^\n]\n",variable,value) !=EOF)
     if(strstr(variable,vname)) sscanf(value,"%d",&bandRxHarmonic[b]);   
     sprintf(vname,"bandRepShift%02d",b);
     if(strstr(variable,vname)) sscanf(value,"%lf",&bandRepShift[b]);
+    sprintf(vname,"bandCTCSS%02d",b);
+    if(strstr(variable,vname)) sscanf(value,"%d",&bandCTCSS[b]);
     sprintf(vname,"bandDuplex%02d",b);
     if(strstr(variable,vname)) sscanf(value,"%d",&bandDuplex[b]);  
  
@@ -3601,6 +3656,7 @@ for(int b=0;b<numband;b++)
   fprintf(conffile,"bandRxOffSet%02d %lf\n",b,bandRxOffset[b]);
   fprintf(conffile,"bandRxHarmonic%02d %d\n",b,bandRxHarmonic[b]);
   fprintf(conffile,"bandRepShift%02d %lf\n",b,bandRepShift[b]);
+  fprintf(conffile,"bandCTCSS%02d %d\n",b,bandCTCSS[b]);
   fprintf(conffile,"bandDuplex%02d %d\n",b,bandDuplex[b]);
   fprintf(conffile,"bandRxBits%02d %d\n",b,bandBitsRx[b]);
   fprintf(conffile,"bandTxBits%02d %d\n",b,bandBitsTx[b]);
