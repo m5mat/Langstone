@@ -2389,7 +2389,7 @@ void setMode(int md)
   setForeColour(255,255,0);
   textSize=2;
   displayStr(modename[md]);
-  if(((md==FM)||(md=DMR))&&(bandDuplex[band]==1))
+  if(((md==FM)||(md==DMR))&&(bandDuplex[band]==1))
     {
     displayStr("DUP");
     }
