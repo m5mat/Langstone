@@ -109,15 +109,6 @@ fi
 sudo sed -i '/dtoverlay=vc4-fkms-v3d/s/^/#/' /boot/config.txt
 
 echo "#################################"
-echo "##        Install OP25         ##"
-echo "#################################"
-
-cd ~
-git clone https://github.com/boatbod/op25
-cd op25
-./install.sh
-
-echo "#################################"
 echo "##         Install DSD         ##"
 echo "#################################"
 
